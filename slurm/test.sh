@@ -17,7 +17,7 @@ module show intel/2018.3
 module list
 which cc
 python data/shakespeare_char/prepare.py
-#time python -u train.py config/train_shakespeare_char_small.py --device=cuda --max_iters=1000 --lr_decay_iters=1000 --out_dir=/p/tmp/heitzig/out-shakespeare-char
-#time python -u train.py config/train_shakespeare_char_small_ternary.py --device=cuda --max_iters=1000 --lr_decay_iters=1000 --out_dir=/p/tmp/heitzig/out-shakespeare-char-ternary
+time python -u train.py config/train_shakespeare_char_small.py --device=cuda --max_iters=1000 --lr_decay_iters=1000 --out_dir=/p/tmp/heitzig/out-shakespeare-char
+time python -u train.py config/train_shakespeare_char_small_ternary.py --device=cuda --max_iters=1000 --lr_decay_iters=1000 --out_dir=/p/tmp/heitzig/out-shakespeare-char-ternary
 time python sample.py --out_dir=/p/tmp/heitzig/out-shakespeare-char --device=cuda
 time python sample.py --out_dir=/p/tmp/heitzig/out-shakespeare-char-ternary --device=cuda

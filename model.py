@@ -102,7 +102,7 @@ class CausalSelfAttention(nn.Module):
             v = v.view(B, T, nh3, 1, C3 // nh3).transpose(1, 2) # (B, nh3, T, 1, hs)
             w = w.view(B, T, 1, nh3, C3 // nh3).transpose(1, 3) # (B, nh3, 1, T, hs)
             att = (q @ (k*m).view(B, nh3, T*T, -1).transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1))) # (B, nh3, T, hs) x (B, nh3, hs, T²) -> (B, nh3, T, T²)
-            # att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf')) # TODO: how to? which bias to use?
+            att = att.view(B, nh3, T, T, T).masked_fill(self.bias[:,:,:T,:T].view(1, 1, T, T, 1) == 0, float('-inf')).masked_fill(self.bias[:,:,:T,:T].view(1, 1, T, 1, T) == 0, float('-inf')).view(B, nh3, T, T*T) # TODO: how to? which bias to use?
             att = F.softmax(att, dim=-1)
             att = self.attn_dropout(att)
             y = att @ (v*w).view(B, nh3, T*T, -1) # (B, nh3, T, T²) x (B, nh3, T², hs) -> (B, nh3, T, hs)
