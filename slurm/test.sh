@@ -17,5 +17,5 @@ module show intel/2018.3
 module list
 which cc
 python data/shakespeare_char/prepare.py
-time python -u train.py config/train_shakespeare_char_small.py --device=cpu
-time python -u train.py config/train_shakespeare_char_small_ternary.py --device=cpu
+time python -u train.py config/train_shakespeare_char_small.py --device=cuda
+time python -u train.py config/train_shakespeare_char_small_ternary.py --device=cuda
