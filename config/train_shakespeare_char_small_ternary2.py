@@ -23,7 +23,7 @@ n_head = 4 #6
 n_head3 = 2 #0
 n_embd = 128 #384
 n_embd3 = 64 #0
-dropout = 0.0 #0.2
+dropout = 0.2 #0.2
 
 learning_rate = 1e-4 # with baby networks can afford to go a bit higher
 max_iters = 100 #5000

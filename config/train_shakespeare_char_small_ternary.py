@@ -18,12 +18,12 @@ batch_size = 12 #64
 block_size = 128 # 256 # context of up to 256 previous characters
 
 # baby GPT model :)
-n_layer = 4 #6
-n_head = 4 #6
+n_layer = 5 #6
+n_head = 5 #6
 n_head3 = 1 #0
-n_embd = 128 #384
+n_embd = 160 #384
 n_embd3 = 32 #0
-dropout = 0.0 #0.2
+dropout = 0.2 #0.2
 
 learning_rate = 1e-4 # with baby networks can afford to go a bit higher
 max_iters = 100 #5000
