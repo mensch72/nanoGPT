@@ -2,4 +2,4 @@ __pycache__
 nohup.out
 out-shakespeare-char
 data
-
+*.pt
