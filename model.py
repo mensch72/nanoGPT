@@ -39,15 +39,22 @@ class CausalSelfAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
         assert config.n_embd % config.n_head == 0
+
+        self.n_head3 = config.n_head3
+        self.n_head2 = config.n_head - config.n_head3
+        self.n_embd = config.n_embd
+        self.n_embd3 = config.n_embd3
+        self.n_embd2 = config.n_embd - config.n_embd3
+
         # key, query, value projections for all heads, but in a batch
-        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
+        self.c_attn2 = nn.Linear(config.n_embd, 3 * self.n_embd2, bias=config.bias)
+        # key, query, moderator, value, weight projections for all ternary heads, but in a batch
+        self.c_attn3 = nn.Linear(config.n_embd, 5 * config.n_embd3, bias=config.bias)
         # output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
         # regularization
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_dropout = nn.Dropout(config.dropout)
-        self.n_head = config.n_head
-        self.n_embd = config.n_embd
         self.dropout = config.dropout
         # flash attention make GPU go brrrrr but support is only in PyTorch nightly and still a bit scary
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention') and self.dropout == 0.0
@@ -60,11 +67,14 @@ class CausalSelfAttention(nn.Module):
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
 
+        C2 = self.n_embd2
+        C3 = self.n_embd3
+
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        q, k ,v  = self.c_attn(x).split(self.n_embd, dim=2)
-        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
+        q, k ,v  = self.c_attn2(x).split(self.n_embd2, dim=2)
+        k = k.view(B, T, self.n_head2, C2 // self.n_head2).transpose(1, 2) # (B, nh, T, hs)
+        q = q.view(B, T, self.n_head2, C2 // self.n_head2).transpose(1, 2) # (B, nh, T, hs)
+        v = v.view(B, T, self.n_head2, C2 // self.n_head2).transpose(1, 2) # (B, nh, T, hs)
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         if self.flash:
@@ -72,12 +82,36 @@ class CausalSelfAttention(nn.Module):
             y = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=self.dropout, is_causal=True)
         else:
             # manual implementation of attention
-            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1))) # (B, nh, T, T)
             att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
             att = F.softmax(att, dim=-1)
             att = self.attn_dropout(att)
             y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-        y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
+        y2 = y.transpose(1, 2).contiguous().view(B, T, C2) # re-assemble all head outputs side by side
+
+        # use ternary attention to attend to the rest of n_embd
+
+        nh3 = self.n_head3
+
+        if nh3 > 0:
+            # calculate query, key, moderator, values, weights for all ternary heads in batch and move head forward to be the batch dim
+            q, k, m, v, w = self.c_attn3(x).split(self.n_embd3, dim=2)
+            k = k.view(B, T, nh3, 1, C3 // nh3).transpose(1, 2) # (B, nh3, T, 1, hs)
+            m = m.view(B, T, 1, nh3, C3 // nh3).transpose(1, 3) # (B, nh3, 1, T, hs)
+            q = q.view(B, T, nh3, C3 // nh3).transpose(1, 2) # (B, nh3, T, hs)
+            v = v.view(B, T, nh3, 1, C3 // nh3).transpose(1, 2) # (B, nh3, T, 1, hs)
+            w = w.view(B, T, 1, nh3, C3 // nh3).transpose(1, 3) # (B, nh3, 1, T, hs)
+            att = (q @ (k*m).view(B, nh3, T*T, -1).transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1))) # (B, nh3, T, hs) x (B, nh3, hs, T²) -> (B, nh3, T, T²)
+            # att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf')) # TODO: how to? which bias to use?
+            att = F.softmax(att, dim=-1)
+            att = self.attn_dropout(att)
+            y = att @ (v*w).view(B, nh3, T*T, -1) # (B, nh3, T, T²) x (B, nh3, T², hs) -> (B, nh3, T, hs)
+            y3 = y.transpose(1, 2).contiguous().view(B, T, C3) # re-assemble all ternary head outputs side by side
+
+            # concatenate y2 and y3
+            y = torch.cat([y2, y3], dim=2) # (B, T, C)
+        else:
+            y = y2
 
         # output projection
         y = self.resid_dropout(self.c_proj(y))
@@ -118,7 +152,9 @@ class GPTConfig:
     vocab_size: int = 50304 # GPT-2 vocab_size of 50257, padded up to nearest multiple of 64 for efficiency
     n_layer: int = 12
     n_head: int = 12
+    n_head3: int = 0 # number of ternary heads
     n_embd: int = 768
+    n_embd3: int = 0 # number of dimensions to reserve for ternary attention, must be multiple of n_head3, and rest must be multiple of n_head-n_head3
     dropout: float = 0.0
     bias: bool = True # True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster
 
