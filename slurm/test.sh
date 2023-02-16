@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #SBATCH --qos=gpupreempt
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:v100:1
 #SBATCH --job-name=test_job
 ###SBATCH --account=heitzig
 #SBATCH --output=test-%j.out
