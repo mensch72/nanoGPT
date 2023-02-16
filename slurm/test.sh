@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --qos=short
+#SBATCH --qos=gpushort
 #SBATCH --job-name=test_job
 ###SBATCH --account=heitzig
 #SBATCH --output=test-%j.out
