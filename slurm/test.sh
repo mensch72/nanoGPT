@@ -10,4 +10,6 @@
 #SBATCH --workdir=/p/tmp/heitzig
 
 source activate torch
-hostname
+cd /home/heitzig/gane/rl/git/nanoGPT
+python data/shakespeare_char/prepare.py
+time python -u train.py config/train_shakespeare_char_small.py
