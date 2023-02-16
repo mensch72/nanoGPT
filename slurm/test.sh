@@ -19,3 +19,5 @@ which cc
 python data/shakespeare_char/prepare.py
 time python -u train.py config/train_shakespeare_char_small.py --device=cuda --out_dir=/p/tmp/heitzig/out-shakespeare-char
 time python -u train.py config/train_shakespeare_char_small_ternary.py --device=cuda --out_dir=/p/tmp/heitzig/out-shakespeare-char-ternary
+time python sample.py --out_dir=/p/tmp/heitzig/out-shakespeare-char --device=cuda
+time python sample.py --out_dir=/p/tmp/heitzig/out-shakespeare-char-ternary --device=cuda
