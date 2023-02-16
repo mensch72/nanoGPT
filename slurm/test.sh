@@ -11,7 +11,9 @@
 
 source activate torch
 cd /home/heitzig/gane/rl/git/nanoGPT
-module load mpi/intel/5.1.3
+module load intel/2018.3
+module show intel/2018.3
+#module load mpi/intel/5.1.3
 module list
 which cc
 python data/shakespeare_char/prepare.py
