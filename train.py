@@ -213,7 +213,7 @@ def estimate_loss():
             X, Y = get_batch(split)
             with ctx:
                 logits, loss = model(X, Y)
-            losses[k] = loss.item()
+            losses[k] = 1e6 if loss.isnan() else loss.item()
         out[split] = losses.mean()
     model.train()
     return out
